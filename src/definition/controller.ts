@@ -233,11 +233,10 @@ export const definitionCommands = {
 };
 
 /** What to paste into an agent so it learns what it can change. */
-export function agentPrompt(machine: string | null): string {
+export function agentPrompt(machine: string | null, home: string | null): string {
   const m = machine ?? "<definition machine>";
-  const home = status.home ?? "~/.config/herdr-mobile";
-  const guide = `${home}/AGENTS.md`;
-  const quote = (text: string) => `'${text.replace(/'/g, "'\\''")}'`;
-  return `Read ${quote(guide)} on ${m} (from another machine: \`hc file read --on ${m} ${quote(guide)}\`), then tell me what you can change in Herdr Mobile.`;
+  const guide = home ? `${home}/AGENTS.md` : "~/.config/herdr-mobile/AGENTS.md";
+  const arg = home ? `'${guide.replaceAll("'", "'\\''")}'` : guide;
+  return `Read ${guide} on ${m} (from another machine: \`hc file read --on ${m} ${arg}\`), then tell me what you can change in Herdr Mobile.`;
 }
 
