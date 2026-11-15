@@ -62,25 +62,6 @@ sessions with scratch state directories, so they never see your terminals.
   `check.mjs`, bundled by esbuild) as generated TypeScript. It runs on install
   and before tests and typecheck; run it yourself while Metro runs.
 
-## Definition home
-
-By default, the app reads `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile` on
-the definition machine. Set `HERDR_MOBILE_HOME` to use another existing,
-writable directory:
-
-```sh
-export HERDR_MOBILE_HOME="$HOME/other/herdr-mobile/customizations"
-hc server stop
-hc server start
-```
-
-Set this variable in the environment that launches `herdr-core`. A value set
-only in the phone app or an `hc` client shell cannot change an already-running
-core. For a service-managed core, set it in that service's environment and
-restart the service. The app passes the value to a quoted remote command; paths
-with spaces are supported. An invalid explicit path is an error, not a silent
-fallback. If unset, the existing XDG/HOME default is unchanged.
-
 ## JavaScript and native changes
 
 A change is native when it touches `modules/`, `plugins/`, `app.json`, or a

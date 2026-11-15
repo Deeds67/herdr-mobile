@@ -1,4 +1,4 @@
-// check.mjs: node ~/.config/herdr-mobile/check.mjs [mod names...]
+// check.mjs: node <home>/check.mjs [mod names...]
 // Checks the home this file sits in. Exits 1 and prints file:line: message
 // for each problem.
 import { dirname } from "node:path";

@@ -26,11 +26,8 @@ both `adb reverse` lines again. The SSH tunnel uses 2222 because the phone's
 (Settings → Machines → Copy) to `~/.ssh/authorized_keys`; reinstalling the
 app makes a new one.
 
-The app syncs its definition from `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile`
-on its definition machine, which may be the home your everyday phone uses too.
-Set `HERDR_MOBILE_HOME` in the environment that launches herdr-core to use an
-existing writable directory instead; restart the core for the change to take
-effect. See [development.md](development.md#definition-home). Try mods and
+The app syncs its definition from `~/.config/herdr-mobile` on its definition
+machine, which may be the home your everyday phone uses too. Try mods and
 layouts there under new names, and remove them afterwards; editing a shipped
 file moves it aside to `<name>-edited` on the next connect.
 

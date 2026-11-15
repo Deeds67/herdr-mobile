@@ -35,10 +35,8 @@ Tap an agent to open its terminal.
 
 ## Make it yours
 
-The app draws its screens with mods: small JavaScript programs in
-`${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile` on one of your machines. Set
-`HERDR_MOBILE_HOME` in the definition machine's herdr-core environment to
-select another home; see [development](docs/development.md#definition-home).
+The app draws its screens with mods: small JavaScript programs in `~/.config/herdr-mobile` on one of your machines.
+Set `HERDR_MOBILE_HOME` where herdr-core starts on that machine, and restart it, to use another folder.
 Ask an agent there to change them. Copy the agent prompt from Settings → Definition to start.
 Your phone shows the change within a few seconds.
 If something goes wrong, Settings → Definition → Reset layout brings back the shipped screens.
