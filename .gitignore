@@ -1,3 +1,5 @@
+# Machine-specific bootstrap configuration; commit config.example.json instead.
+/config.json
 node_modules/
 .expo/
 /android/

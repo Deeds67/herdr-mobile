@@ -73,6 +73,13 @@ standard directory:
 { "definition": { "path": "~/other/herdr-mobile/customizations" } }
 ```
 
+`config.json` configures where the app loads its definition; `settings.json`
+inside that definition controls its layout and theme. Keep machine-specific
+`config.json` files out of Git. The repository ignores `/config.json` and ships
+[`config.example.json`](../config.example.json) as a template. Edit the template's
+path for your checkout, then save it as `config.json` in the standard directory
+on the definition machine; a file in the checkout is not discovered automatically.
+
 `definition.path` must be absolute or start with `~/`; spaces are supported.
 The directory must already exist and be writable. An absent config or path
 keeps the default. Invalid configuration is reported and leaves the phone's
