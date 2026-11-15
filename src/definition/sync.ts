@@ -1,5 +1,6 @@
 // Keeps the phone's copy of the definition in step with the definition
-// machine's home (~/.config/herdr-mobile, or $XDG_CONFIG_HOME/herdr-mobile).
+// machine's home ($HERDR_MOBILE_HOME, else ~/.config/herdr-mobile, or
+// $XDG_CONFIG_HOME/herdr-mobile).
 // herdr-core has no file events, so the caller polls: every few seconds while
 // the app is in front. Each poll lists checksums and reads only what changed.
 import { toBase64 } from "../hc/bytes";
@@ -10,7 +11,7 @@ import type { Remote } from "./remote";
 /** path → its text, or null when it's gone. Binary files are data: URIs. */
 export type Changes = Record<string, string | null>;
 
-const HOME = 'if [ -n "${HERDR_MOBILE_HOME:-}" ]; then p=$HERDR_MOBILE_HOME; if [ ! -d "$p" ] || [ ! -w "$p" ]; then echo "HERDR_MOBILE_HOME must name an existing writable directory: $p" >&2; exit 1; fi; cd -P -- "$p" && printf %s "$PWD"; else printf %s "${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile"; fi';
+const HOME = 'printf %s "${HERDR_MOBILE_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile}"';
 
 // Lists the definition: what desktop's watcher would count (files.rs watched()).
 // -L follows symlinks, so a home linked from dotfiles (GNU Stow) counts.

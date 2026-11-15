@@ -1,7 +1,7 @@
 // DefinitionSync against a real scratch core: the home it installs, the
 // changes it sees, the .error files it writes.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -11,10 +11,9 @@ import { DefinitionSync } from "../src/definition/sync";
 import { hcProcessTransport } from "./node-transport";
 
 const scratch = mkdtempSync(join(tmpdir(), "hm-def-"));
-const env = { XDG_STATE_HOME: join(scratch, "state"), XDG_RUNTIME_DIR: join(scratch, "r"), XDG_CONFIG_HOME: join(scratch, "config"), HC_SESSION: "hmdef" };
-const home = join(scratch, "config", "herdr-mobile");
+const env = { XDG_STATE_HOME: join(scratch, "state"), XDG_RUNTIME_DIR: join(scratch, "run"), HERDR_MOBILE_HOME: "" };
+const home = join(scratch, "hmdef-config", "herdr-mobile");
 const M: MachineConfig = { id: "d", name: "d", host: "hmdef", port: 22, user: "me" };
-let fleet: Fleet;
 
 function until<T>(check: () => T | undefined | false, ms = 15_000): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -36,31 +35,20 @@ const shipped = {
 };
 
 async function sync() {
-  const target = await until(() => fleet.targets()[0]);
-  return new DefinitionSync(remoteOf(fleet, target));
+  return new DefinitionSync(core.remote);
 }
 
-async function isolatedCore(session: string, extraEnv: Record<string, string>) {
-  const coreEnv = {
-    ...env,
-    ...extraEnv,
-    HC_SESSION: session,
-    XDG_STATE_HOME: join(scratch, `${session}-state`),
-    XDG_RUNTIME_DIR: join(scratch, `r${session.slice(-1)}`),
-    XDG_CONFIG_HOME: join(scratch, `${session}-config`),
-  };
-  mkdirSync(coreEnv.XDG_RUNTIME_DIR, { recursive: true });
+async function startCore(session: string, extraEnv: Record<string, string> = {}) {
+  const coreEnv = { ...env, ...extraEnv, HC_SESSION: session, XDG_CONFIG_HOME: join(scratch, `${session}-config`) };
   execFileSync("hc", ["server", "start"], { env: { ...process.env, ...coreEnv } });
-  const clientEnv: Record<string, string> = { ...coreEnv };
-  delete clientEnv.HERDR_MOBILE_HOME;
-  const isolated = new Fleet(async () => hcProcessTransport(clientEnv));
-  isolated.setMachines([{ ...M, id: session, host: session, name: session }]);
-  await until(() => isolated.snapshot().links[0]?.state === "connected");
-  const target = await until(() => isolated.targets()[0]);
+  const f = new Fleet(async () => hcProcessTransport(coreEnv));
+  f.setMachines([{ ...M, id: session, host: session, name: session }]);
+  await until(() => f.snapshot().links[0]?.state === "connected");
+  const target = await until(() => f.targets()[0]);
   return {
-    remote: remoteOf(isolated, target),
-    close() {
-      isolated.stop();
+    remote: remoteOf(f, target),
+    stop() {
+      f.stop();
       try {
         execFileSync("hc", ["server", "stop"], { env: { ...process.env, ...coreEnv } });
       } catch {}
@@ -68,19 +56,15 @@ async function isolatedCore(session: string, extraEnv: Record<string, string>) {
   };
 }
 
+let core: Awaited<ReturnType<typeof startCore>>;
+
 beforeAll(async () => {
   mkdirSync(env.XDG_RUNTIME_DIR, { recursive: true });
-  execFileSync("hc", ["server", "start"], { env: { ...process.env, ...env } });
-  fleet = new Fleet(async () => hcProcessTransport(env));
-  fleet.setMachines([M]);
-  await until(() => fleet.snapshot().links[0]?.state === "connected");
+  core = await startCore("hmdef");
 }, 30_000);
 
 afterAll(() => {
-  fleet?.stop();
-  try {
-    execFileSync("hc", ["server", "stop"], { env: { ...process.env, ...env } });
-  } catch {}
+  core?.stop();
   rmSync(scratch, { recursive: true, force: true });
 });
 
@@ -94,34 +78,19 @@ test("installs the shipped home and returns the definition", async () => {
   expect(await s.poll()).toBeNull();
 }, 30_000);
 
-test("uses HERDR_MOBILE_HOME inherited by the remote core, including spaces", async () => {
-  const custom = join(scratch, "definition home with spaces");
-  mkdirSync(custom, { recursive: true });
-  const core = await isolatedCore("hmovr", { HERDR_MOBILE_HOME: custom });
+test("uses HERDR_MOBILE_HOME from the core's environment, as given", async () => {
+  const custom = join(scratch, "def home $x");
+  const other = await startCore("hmovr", { HERDR_MOBILE_HOME: custom });
   try {
-    const envValue = await core.remote.exec(["sh", "-c", 'printf %s "$HERDR_MOBILE_HOME"']);
-    expect(envValue.stdout).toBe(custom);
-
-    const s = new DefinitionSync(core.remote);
+    const s = new DefinitionSync(other.remote);
     const files = await s.start(shipped);
-    expect(s.path).toBe(realpathSync(custom));
+    expect(s.path).toBe(custom);
+    expect(readFileSync(join(custom, "AGENTS.md"), "utf8")).toBe("# guide");
+    expect(existsSync(join(custom, "installed.json"))).toBe(true);
     expect(files["layouts/main.json"]).toBe(shipped["layouts/main.json"]);
+    expect(existsSync(join(scratch, "hmovr-config", "herdr-mobile"))).toBe(false);
   } finally {
-    core.close();
-  }
-}, 30_000);
-
-test("does not evaluate or fall back from an invalid explicit HERDR_MOBILE_HOME", async () => {
-  const marker = join(scratch, "unexpected-command-marker");
-  const configured = `${join(scratch, "missing home")}; touch ${marker}`;
-  const core = await isolatedCore("hmbad", { HERDR_MOBILE_HOME: configured });
-  try {
-    const s = new DefinitionSync(core.remote);
-    await expect(s.start(shipped)).rejects.toThrow("HERDR_MOBILE_HOME must name an existing writable directory");
-    expect(s.path).toBeNull();
-    expect(existsSync(marker)).toBe(false);
-  } finally {
-    core.close();
+    other.stop();
   }
 }, 30_000);
 
