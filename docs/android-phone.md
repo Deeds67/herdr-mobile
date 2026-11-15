@@ -28,10 +28,11 @@ app makes a new one.
 
 The app syncs its definition from `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile`
 on its definition machine, which may be the home your everyday phone uses too.
-An optional `config.json` there can select another existing writable directory;
-see [Definition home](development.md#definition-home). Try mods and layouts
-there under new names, and remove them afterwards; editing a shipped file
-moves it aside to `<name>-edited` on the next connect.
+Set `HERDR_MOBILE_HOME` in the environment that launches herdr-core to use an
+existing writable directory instead; restart the core for the change to take
+effect. See [development.md](development.md#definition-home). Try mods and
+layouts there under new names, and remove them afterwards; editing a shipped
+file moves it aside to `<name>-edited` on the next connect.
 
 Drive the phone with Maestro, which finds elements by their text, and take a
 screenshot to show a change. `adb shell input text` sends key presses, and two

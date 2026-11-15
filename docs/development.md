@@ -43,7 +43,6 @@ sessions with scratch state directories, so they never see your terminals.
   mods, icons, the agents' guide and `.d.ts` files); `sync.ts` keeps the
   phone's copy in step with the definition machine; `store.ts` keeps last good
   versions and `.error` files; `controller.ts` wires them into the app.
-
 - `src/mods/`: running mods. `runtime/` is the JavaScript each engine loads
   (`herdr-ui`, `herdr`); `copy.ts` runs one mod copy; `data.ts` and
   `../commands.ts` are what mods read and do; `engine-wasm.ts` is the engine
@@ -65,27 +64,22 @@ sessions with scratch state directories, so they never see your terminals.
 
 ## Definition home
 
-By default, the definition machine serves `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile`.
-To use an existing writable directory instead, put `config.json` in that
-standard directory:
+By default, the app reads `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile` on
+the definition machine. Set `HERDR_MOBILE_HOME` to use another existing,
+writable directory:
 
-```json
-{ "definition": { "path": "~/other/herdr-mobile/customizations" } }
+```sh
+export HERDR_MOBILE_HOME="$HOME/other/herdr-mobile/customizations"
+hc server stop
+hc server start
 ```
 
-`config.json` configures where the app loads its definition; `settings.json`
-inside that definition controls its layout and theme. Keep machine-specific
-`config.json` files out of Git. The repository ignores `/config.json` and ships
-[`config.example.json`](../config.example.json) as a template. Edit the template's
-path for your checkout, then save it as `config.json` in the standard directory
-on the definition machine; a file in the checkout is not discovered automatically.
-
-`definition.path` must be absolute or start with `~/`; spaces are supported.
-The directory must already exist and be writable. An absent config or path
-keeps the default. Invalid configuration is reported and leaves the phone's
-last good definition in place. The app checks config changes during its normal
-foreground sync. This bootstrap file is always read from the standard config
-directory, not from the selected directory.
+Set this variable in the environment that launches `herdr-core`. A value set
+only in the phone app or an `hc` client shell cannot change an already-running
+core. For a service-managed core, set it in that service's environment and
+restart the service. The app passes the value to a quoted remote command; paths
+with spaces are supported. An invalid explicit path is an error, not a silent
+fallback. If unset, the existing XDG/HOME default is unchanged.
 
 ## JavaScript and native changes
 
