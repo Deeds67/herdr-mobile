@@ -43,7 +43,7 @@ the app's header (it carries the ⋯ menu that reaches Settings).
 
 ## Changing things safely
 
-- **Check every change:** `node ~/.config/herdr-mobile/check.mjs` checks
+- **Check every change:** `node check.mjs` in this folder checks
   settings.json, every layout and every mod: it loads, starts and draws each
   mod once with sample data. `node check.mjs prs spaces` checks only those
   mods. It prints `file:line: message` and exits 1 on problems. It needs
@@ -78,10 +78,9 @@ the app's header (it carries the ⋯ menu that reaches Settings).
 ships new versions. If you edit one, the next connect moves your version
 aside (`mods/spaces-edited/`, `layouts/main-edited.json`) and puts the
 shipped one back. To change a shipped mod, copy it under a new name and
-point the layout at your copy:
+point the layout at your copy. From this folder:
 
 ```sh
-cd ~/.config/herdr-mobile
 cp -r mods/spaces mods/my-spaces            # then edit mods/my-spaces
 cp layouts/main.json layouts/mine.json      # then use "my-spaces" in it
 echo '{ "layout": "mine" }' > settings.json
@@ -300,5 +299,5 @@ something similar, and copy them to change them.
 - Don't touch shipped mods or layouts in place: copy them.
 - The person sees changes only while the app is open; tell them to open it
   (and that the definition machine is this one) if they don't see yours.
-- After every change: `node ~/.config/herdr-mobile/check.mjs`, then the
+- After every change: `node check.mjs`, then the
   `.error` files.

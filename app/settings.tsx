@@ -143,11 +143,11 @@ function DefinitionSettings() {
           />
         )}
       </Row>
-      <Row label="Agent prompt" hint={agentPrompt(status.machine)}>
+      <Row label="Agent prompt" hint={agentPrompt(status.machine, status.home)}>
         <Small
           label={copied ? "Copied" : "Copy"}
           onPress={() => {
-            void Clipboard.setStringAsync(agentPrompt(status.machine));
+            void Clipboard.setStringAsync(agentPrompt(status.machine, status.home));
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}

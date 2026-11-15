@@ -33,7 +33,7 @@ export function AppMenu() {
           label="Copy agent prompt"
           detail="Paste it into an agent: it learns how to change this app."
           onPress={go(() => {
-            void Clipboard.setStringAsync(agentPrompt(status.machine));
+            void Clipboard.setStringAsync(agentPrompt(status.machine, status.home));
             toast({ title: "Agent prompt copied" });
           })}
         />
