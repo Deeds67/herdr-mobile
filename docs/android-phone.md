@@ -26,10 +26,12 @@ both `adb reverse` lines again. The SSH tunnel uses 2222 because the phone's
 (Settings → Machines → Copy) to `~/.ssh/authorized_keys`; reinstalling the
 app makes a new one.
 
-The app syncs its definition from `~/.config/herdr-mobile` on its definition
-machine, which may be the home your everyday phone uses too. Try mods and
-layouts there under new names, and remove them afterwards; editing a shipped
-file moves it aside to `<name>-edited` on the next connect.
+The app syncs its definition from `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile`
+on its definition machine, which may be the home your everyday phone uses too.
+An optional `config.json` there can select another existing writable directory;
+see [Definition home](development.md#definition-home). Try mods and layouts
+there under new names, and remove them afterwards; editing a shipped file
+moves it aside to `<name>-edited` on the next connect.
 
 Drive the phone with Maestro, which finds elements by their text, and take a
 screenshot to show a change. `adb shell input text` sends key presses, and two

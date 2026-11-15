@@ -11,6 +11,8 @@ import type { Remote } from "./remote";
 export type Changes = Record<string, string | null>;
 
 const HOME = 'printf %s "${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile"';
+const BOOTSTRAP = 'if [ -f "$1" ]; then cat "$1"; elif [ -e "$1" ] || [ -L "$1" ]; then echo "cannot read bootstrap config" >&2; exit 2; else exit 1; fi';
+const RESOLVE = 'case "$1" in /*) p=$1;; "~/"*) p="$HOME/${1#\\~/}";; *) echo "path must be absolute or start with ~/" >&2; exit 2;; esac; if [ ! -d "$p" ] || [ ! -w "$p" ]; then echo "configured definition path does not exist or is not writable: $1" >&2; exit 3; fi; cd "$p" && pwd -P';
 
 // Lists the definition: what desktop's watcher would count (files.rs watched()).
 // -L follows symlinks, so a home linked from dotfiles (GNU Stow) counts.
@@ -33,6 +35,8 @@ export function parseListing(out: string): Record<string, string> {
 
 export class DefinitionSync {
   private home: string | null = null;
+  private configText: string | null = null;
+  private shipped: Record<string, string> = {};
   private sums: Record<string, string> = {};
   private busy = false;
 
@@ -45,10 +49,11 @@ export class DefinitionSync {
 
   /** Finds the home, installs the shipped files, and returns every definition file. */
   async start(shipped: Record<string, string>): Promise<Changes> {
-    const h = await this.remote.exec(["sh", "-c", HOME]);
-    if (h.code !== 0 || !h.stdout) throw new Error(`cannot find the home: ${h.stderr}`);
-    this.home = h.stdout;
-    await this.install(shipped);
+    this.shipped = shipped;
+    const selection = await this.readSelection();
+    await this.install(selection.home, shipped);
+    this.home = selection.home;
+    this.configText = selection.configText;
     this.sums = {};
     return (await this.poll()) ?? {};
   }
@@ -58,26 +63,94 @@ export class DefinitionSync {
     if (!this.home || this.busy) return null;
     this.busy = true;
     try {
-      const out = await this.remote.exec(["sh", "-c", LIST, "list", this.home]);
-      const now = parseListing(out.stdout);
-      const changes: Changes = {};
-      for (const p of Object.keys(this.sums)) if (!(p in now)) changes[p] = null;
-      const changed = Object.keys(now).filter((p) => now[p] !== this.sums[p] && isDefinitionPath(p));
-      await Promise.all(
-        changed.map(async (p) => {
-          try {
-            changes[p] = await this.readFile(p);
-          } catch {
-            // Gone between the listing and the read, or unreadable: the next poll sees it.
-            delete now[p];
-          }
-        }),
-      );
-      this.sums = now;
-      return Object.keys(changes).length ? changes : null;
+      const previousHome = this.home;
+      const previousConfig = this.configText;
+      const previousSums = this.sums;
+      let removed: string[] = [];
+      let switched = false;
+      try {
+        const selection = await this.readSelection();
+        if (selection.home !== this.home || selection.configText !== this.configText) {
+          removed = Object.keys(this.sums);
+          await this.install(selection.home, this.shipped);
+          this.home = selection.home;
+          this.configText = selection.configText;
+          this.sums = {};
+          switched = true;
+        }
+        const changes = await this.readChanges();
+        const confirmed = await this.readSelection();
+        if (confirmed.home !== this.home || confirmed.configText !== this.configText) {
+          throw new Error("definition config changed during sync; retrying");
+        }
+        for (const p of removed) if (!(p in changes)) changes[p] = null;
+        return Object.keys(changes).length ? changes : null;
+      } catch (error) {
+        if (switched) {
+          this.home = previousHome;
+          this.configText = previousConfig;
+          this.sums = previousSums;
+        }
+        throw error;
+      }
     } finally {
       this.busy = false;
     }
+  }
+
+  private async readSelection(): Promise<{ home: string; configText: string | null }> {
+    const defaultResult = await this.remote.exec(["sh", "-c", HOME]);
+    if (defaultResult.code !== 0 || !defaultResult.stdout) throw new Error(`cannot find the definition home: ${defaultResult.stderr.trim()}`);
+    const defaultHome = defaultResult.stdout;
+    const configPath = `${defaultHome}/config.json`;
+    const config = await this.remote.exec(["sh", "-c", BOOTSTRAP, "bootstrap", configPath]);
+    if (config.code === 1) return { home: defaultHome, configText: null };
+    if (config.code !== 0) throw new Error(config.stderr.trim() || `cannot read ${configPath}`);
+
+    let value: unknown;
+    try {
+      value = JSON.parse(config.stdout);
+    } catch {
+      throw new Error(`${configPath}: invalid JSON`);
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${configPath}: expected a JSON object`);
+    if (Object.keys(value).some((key) => key !== "definition")) throw new Error(`${configPath}: unexpected config field`);
+    const definition = (value as { definition?: unknown }).definition;
+    if (definition === undefined) return { home: defaultHome, configText: config.stdout };
+    if (!definition || typeof definition !== "object" || Array.isArray(definition)) {
+      throw new Error(`${configPath}: definition must be an object`);
+    }
+    if (Object.keys(definition).some((key) => key !== "path")) throw new Error(`${configPath}: unexpected definition field`);
+    const path = (definition as { path?: unknown }).path;
+    if (path === undefined) return { home: defaultHome, configText: config.stdout };
+    if (typeof path !== "string" || !path.trim()) throw new Error(`${configPath}: definition.path must be a non-empty string`);
+    if (!(path.startsWith("/") || path.startsWith("~/"))) {
+      throw new Error(`${configPath}: definition.path must be absolute or start with ~/`);
+    }
+    const resolved = await this.remote.exec(["sh", "-c", RESOLVE, "resolve", path]);
+    if (resolved.code !== 0 || !resolved.stdout) {
+      throw new Error(resolved.stderr.trim() || `${configPath}: configured definition path is invalid`);
+    }
+    return { home: resolved.stdout.trimEnd(), configText: config.stdout };
+  }
+
+  private async readChanges(): Promise<Changes> {
+    const home = this.home!;
+    const out = await this.remote.exec(["sh", "-c", LIST, "list", home]);
+    const now = parseListing(out.stdout);
+    const changes: Changes = {};
+    for (const p of Object.keys(this.sums)) if (!(p in now)) changes[p] = null;
+    const changed = Object.keys(now).filter((p) => now[p] !== this.sums[p] && isDefinitionPath(p));
+    await Promise.all(changed.map(async (p) => {
+      try {
+        changes[p] = await this.readFile(p);
+      } catch {
+        // Gone between the listing and the read, or unreadable: the next poll sees it.
+        delete now[p];
+      }
+    }));
+    this.sums = now;
+    return changes;
   }
 
   /** A file in the home: text, or a data: URI for images. */
@@ -116,8 +189,7 @@ export class DefinitionSync {
     else await this.remote.write(path, message.endsWith("\n") ? message : `${message}\n`);
   }
 
-  private async install(shipped: Record<string, string>) {
-    const home = this.home!;
+  private async install(home: string, shipped: Record<string, string>) {
     const out = await this.remote.exec(["sh", "-c", LIST_ALL, "list", home]);
     const remote = parseListing(out.stdout);
     let installed: Installed = { files: {} };

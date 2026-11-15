@@ -94,14 +94,26 @@ let writing = false;
 async function writeErrors() {
   if (writing || !sync || status.state !== "synced") return;
   writing = true;
+  const current = sync;
+  const home = current.path;
+  let retry = false;
   try {
     for (const [key, text] of Object.entries(definition.pendingErrors())) {
-      await sync.writeError(key, text);
+      if (sync !== current || current.path !== home) {
+        retry = true;
+        return;
+      }
+      await current.writeError(key, text);
+      if (sync !== current || current.path !== home) {
+        retry = true;
+        return;
+      }
       definition.markWritten(key, text);
     }
   } catch {
   } finally {
     writing = false;
+    if (retry) void writeErrors();
   }
 }
 
@@ -143,15 +155,21 @@ async function poll() {
   if (AppState.currentState !== "active") return;
   check();
   const s = sync;
-  if (!s || status.state !== "synced") return;
+  if (!s) return;
   try {
+    const previousHome = s.path;
     const changes = await s.poll();
-    if (changes && sync === s) {
+    if (sync !== s) return;
+    if (changes) {
+      if (s.path !== previousHome) definition.forgetWritten(await s.listErrors());
       definition.apply(changes);
       save();
     }
-    setStatus({ syncedAt: Date.now() });
-  } catch {}
+    setStatus({ state: "synced", error: null, home: s.path, syncedAt: Date.now() });
+    void writeErrors();
+  } catch (e) {
+    if (sync === s) setStatus({ state: "failed", error: e instanceof Error ? e.message : String(e) });
+  }
 }
 
 function schedule(active: boolean) {
@@ -235,6 +253,9 @@ export const definitionCommands = {
 /** What to paste into an agent so it learns what it can change. */
 export function agentPrompt(machine: string | null): string {
   const m = machine ?? "<definition machine>";
-  return `Read ~/.config/herdr-mobile/AGENTS.md on ${m} (from another machine: \`hc file read --on ${m} ~/.config/herdr-mobile/AGENTS.md\`), then tell me what you can change in Herdr Mobile.`;
+  const home = status.home ?? "~/.config/herdr-mobile";
+  const quote = (text: string) => `'${text.replace(/'/g, "'\\''")}'`;
+  const guide = `${home}/AGENTS.md`;
+  return `Read ${quote(guide)} on ${m} (from another machine: \`hc file read --on ${m} ${quote(guide)}\`), then tell me what you can change in Herdr Mobile.`;
 }
 

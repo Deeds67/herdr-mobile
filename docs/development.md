@@ -43,6 +43,7 @@ sessions with scratch state directories, so they never see your terminals.
   mods, icons, the agents' guide and `.d.ts` files); `sync.ts` keeps the
   phone's copy in step with the definition machine; `store.ts` keeps last good
   versions and `.error` files; `controller.ts` wires them into the app.
+
 - `src/mods/`: running mods. `runtime/` is the JavaScript each engine loads
   (`herdr-ui`, `herdr`); `copy.ts` runs one mod copy; `data.ts` and
   `../commands.ts` are what mods read and do; `engine-wasm.ts` is the engine
@@ -61,6 +62,23 @@ sessions with scratch state directories, so they never see your terminals.
 - `scripts/build-mod-files.mjs`: embeds the runtime and the shipped home (with
   `check.mjs`, bundled by esbuild) as generated TypeScript. It runs on install
   and before tests and typecheck; run it yourself while Metro runs.
+
+## Definition home
+
+By default, the definition machine serves `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile`.
+To use an existing writable directory instead, put `config.json` in that
+standard directory:
+
+```json
+{ "definition": { "path": "~/other/herdr-mobile/customizations" } }
+```
+
+`definition.path` must be absolute or start with `~/`; spaces are supported.
+The directory must already exist and be writable. An absent config or path
+keeps the default. Invalid configuration is reported and leaves the phone's
+last good definition in place. The app checks config changes during its normal
+foreground sync. This bootstrap file is always read from the standard config
+directory, not from the selected directory.
 
 ## JavaScript and native changes
 

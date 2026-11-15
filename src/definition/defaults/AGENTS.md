@@ -7,7 +7,9 @@ phone app for the terminals and coding agents that herdr-core (`hc`) runs on
 the person's machines. The phone reads this folder from this machine (its
 *definition machine*) and redraws itself from it while it runs: change a
 layout or a mod here and the phone follows within a few seconds, if the app is
-open. When the person asks for something on their phone ("a tab with my
+open. By default the folder is `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile`.
+If its `config.json` selects another home, use that selected path in the
+instructions below. When the person asks for something on their phone ("a tab with my
 PRs", "show the branch under each space", "move search to the bottom"), you
 do it by editing these files. The shipped screens (Spaces, Agents, a space's
 tabs, the menus) are mods made from the same parts you have.
@@ -69,10 +71,19 @@ the app's header (it carries the ⋯ menu that reaches Settings).
 |---|---|
 | `layouts/<name>.json` | the app: bottom tabs, screens, which mods show where; one file per layout |
 | `settings.json` | `{ "layout": "<name>", "theme": { "<color>": "#rrggbb" } }`: which layout shows, color overrides |
+| `config.json` | Optional bootstrap config in the standard config directory; `{ "definition": { "path": "~/other/herdr-mobile/customizations" } }` selects another existing writable home |
 | `mods/<name>/` | mods: `main.js`, more `.js` modules, `mod.json`, their own icons |
 | `icons/` | program icons and UI glyphs (`icons/ui/*.svg`): written by the app |
 | `AGENTS.md`, `herdr.d.ts`, `herdr-ui.d.ts`, `check.mjs` | this guide, the API, the checker: written by the app |
 | `installed.json`, `*.error` | the app's bookkeeping and reports |
+
+`config.json` is always read from `${XDG_CONFIG_HOME:-$HOME/.config}/herdr-mobile`,
+even when it selects a different definition home. `definition.path` must be an
+absolute path or start with `~/`; spaces are supported. If the file or path is
+absent, the standard home is used. Invalid JSON, schema, unreadable config, or
+a missing/unwritable selected directory is an error: the phone keeps its last
+good definition and does not silently fall back. Changes are detected during
+normal foreground sync.
 
 **Shipped layouts and mods are the app's.** They're replaced whenever the app
 ships new versions. If you edit one, the next connect moves your version
