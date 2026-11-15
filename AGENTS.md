@@ -2,6 +2,8 @@
 
 Android and iOS client for herdr-core (`hc`), built with Expo.
 
+For any design decision, first check how herdr-app (desktop Herdr, `herdrdev/herdr-app`) solves the same problem and follow it, so both apps and their config stay compatible.
+
 - Check: `pnpm test` (needs `hc` and `cc` on PATH) and `pnpm typecheck`.
 - A push to `main` publishes an over-the-air update to every installed preview app. Land only finished, checked work there.
 - A phone used for development runs only the development client. Never install a preview or production APK on it. See docs/android-phone.md.
