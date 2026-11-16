@@ -1,13 +1,12 @@
 import { useMemo, useRef, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { GestureDetector, usePanGesture, useTapGesture } from "react-native-gesture-handler";
-import Animated, { Easing, ReduceMotion, useAnimatedReaction, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
+import { GestureDetector, usePanGesture, useTapGesture, type PanGestureConfig, type TapGestureConfig } from "react-native-gesture-handler";
+import Animated, { Easing, ReduceMotion, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import type { UIElement } from "../../mods/description";
 import type { Fire } from "./Renderer";
 
-type Actions = NonNullable<UIElement["swipe"]>;
-type Action = Actions[number];
+type Action = NonNullable<UIElement["swipe"]>[number];
 
 const ACTION = 88;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
@@ -25,7 +24,7 @@ function project(velocity: number) {
   return ((velocity / 1000) * 0.998) / (1 - 0.998);
 }
 
-export function Swipe({ actions, fire, children }: { actions: Actions; fire: Fire; children: ReactNode }) {
+export function Swipe({ actions, fire, children }: { actions: Action[]; fire: Fire; children: ReactNode }) {
   const right = actions.find((a) => a.d === "right");
   const left = actions.find((a) => a.d === "left");
   const latest = useRef({ right, left, fire });
@@ -41,8 +40,8 @@ export function Swipe({ actions, fire, children }: { actions: Actions; fire: Fir
   const start = useSharedValue(0);
   const width = useSharedValue(0);
   const rest = useSharedValue(0);
-  const tapEnabled = useSharedValue(false);
   const armed = useSharedValue(0);
+  const tapEnabled = useDerivedValue(() => rest.get() !== 0);
 
   useAnimatedReaction(
     () => width.get() > 0 && Math.abs(x.get()) >= width.get() / 2,
@@ -51,20 +50,30 @@ export function Swipe({ actions, fire, children }: { actions: Actions; fire: Fir
     },
   );
 
+  const close = useMemo(
+    () =>
+      (animation: number = settleTo(0)) => {
+        "worklet";
+        rest.set(0);
+        x.set(animation);
+      },
+    [rest, x],
+  );
+
   const panConfig = useMemo(
-    () => ({
-      activeOffsetX: [-10, 10] as [number, number],
-      failOffsetY: [-10, 10] as [number, number],
+    (): PanGestureConfig => ({
+      activeOffsetX: [-10, 10],
+      failOffsetY: [-10, 10],
       onActivate: () => {
         "worklet";
         start.set(x.get());
       },
-      onUpdate: (e: { translationX: number }) => {
+      onUpdate: (e) => {
         "worklet";
         const w = width.get();
         x.set(Math.max(hasLeft ? -w : 0, Math.min(hasRight ? w : 0, start.get() + e.translationX)));
       },
-      onDeactivate: (e: { translationX: number; velocityX: number; canceled: boolean }) => {
+      onDeactivate: (e) => {
         "worklet";
         const w = width.get();
         const v = x.get();
@@ -72,11 +81,9 @@ export function Swipe({ actions, fire, children }: { actions: Actions; fire: Fir
           x.set(settleTo(rest.get() * ACTION));
           return;
         }
-        const side = v > 0 ? 1 : v < 0 ? -1 : 0;
+        const side = Math.sign(v);
         if (side !== 0 && w > 0 && Math.abs(v) >= w / 2) {
-          rest.set(0);
-          tapEnabled.set(false);
-          x.set(
+          close(
             withTiming(side * w, SLIDE_OUT, (done) => {
               if (!done) return;
               scheduleOnRN(run, side);
@@ -88,26 +95,23 @@ export function Swipe({ actions, fire, children }: { actions: Actions; fire: Fir
         const p = v + project(e.velocityX);
         const to = hasRight && p > ACTION / 2 ? 1 : hasLeft && p < -ACTION / 2 ? -1 : 0;
         rest.set(to);
-        tapEnabled.set(to !== 0);
         x.set(settleTo(to * ACTION, e.velocityX));
       },
     }),
-    [hasLeft, hasRight, rest, run, start, tapEnabled, width, x],
+    [close, hasLeft, hasRight, rest, run, start, width, x],
   );
   const pan = usePanGesture(panConfig);
 
   const tapConfig = useMemo(
-    () => ({
+    (): TapGestureConfig => ({
       enabled: tapEnabled,
       shouldCancelWhenOutside: true,
       onActivate: () => {
         "worklet";
-        rest.set(0);
-        tapEnabled.set(false);
-        x.set(settleTo(0));
+        close();
       },
     }),
-    [rest, tapEnabled, x],
+    [close, tapEnabled],
   );
   const tap = useTapGesture(tapConfig);
 
@@ -115,51 +119,45 @@ export function Swipe({ actions, fire, children }: { actions: Actions; fire: Fir
     transform: [{ translateX: x.get() }],
     pointerEvents: rest.get() === 0 ? "auto" : "box-only",
   }));
-  const leftPanel = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.get() - width.get() }],
-    pointerEvents: x.get() > 0 ? "auto" : "none",
-  }));
-  const leftLabel = useAnimatedStyle(() => ({
-    transform: [{ translateX: armed.get() * (x.get() - ACTION) - (x.get() - width.get()) }],
-  }));
-  const rightPanel = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.get() + width.get() }],
-    pointerEvents: x.get() < 0 ? "auto" : "none",
-  }));
-  const rightLabel = useAnimatedStyle(() => {
-    const w = width.get();
-    const a = armed.get();
-    return { transform: [{ translateX: (1 - a) * (w - ACTION) + a * (w + x.get()) - (x.get() + w) }] };
-  });
 
   const press = (side: number) => {
-    rest.set(0);
-    tapEnabled.set(false);
-    x.set(settleTo(0));
+    close();
     run(side);
   };
-  const panel = (a: Action, side: number) => (
-    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: a.color ?? "#f85149" }, side > 0 ? leftPanel : rightPanel]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={a.label} onPress={() => press(side)} style={StyleSheet.absoluteFill}>
-        <Animated.View style={[styles.label, side > 0 ? leftLabel : rightLabel]}>
-          <Text style={styles.labelText} numberOfLines={1}>
-            {a.label}
-          </Text>
-        </Animated.View>
-      </Pressable>
-    </Animated.View>
-  );
 
   return (
     <GestureDetector gesture={pan}>
       <View style={styles.row} onLayout={(e) => width.set(e.nativeEvent.layout.width)}>
-        {right && panel(right, 1)}
-        {left && panel(left, -1)}
+        {right && <Panel action={right} side={1} x={x} width={width} armed={armed} onPress={() => press(1)} />}
+        {left && <Panel action={left} side={-1} x={x} width={width} armed={armed} onPress={() => press(-1)} />}
         <GestureDetector gesture={tap}>
           <Animated.View style={rowStyle}>{children}</Animated.View>
         </GestureDetector>
       </View>
     </GestureDetector>
+  );
+}
+
+function Panel({ action, side, x, width, armed, onPress }: { action: Action; side: 1 | -1; x: SharedValue<number>; width: SharedValue<number>; armed: SharedValue<number>; onPress: () => void }) {
+  const panelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.get() - side * width.get() }],
+    pointerEvents: side * x.get() > 0 ? "auto" : "none",
+  }));
+  const labelStyle = useAnimatedStyle(() => {
+    const a = armed.get();
+    const v = x.get();
+    return { transform: [{ translateX: side > 0 ? a * (v - ACTION) - v + width.get() : (a - 1) * (ACTION + v) }] };
+  });
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: action.color ?? "#f85149" }, panelStyle]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={action.label} onPress={onPress} style={StyleSheet.absoluteFill}>
+        <Animated.View style={[styles.label, labelStyle]}>
+          <Text style={styles.labelText} numberOfLines={1}>
+            {action.label}
+          </Text>
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
