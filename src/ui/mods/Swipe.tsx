@@ -52,10 +52,10 @@ export function Swipe({ actions, fire, children }: { actions: Action[]; fire: Fi
 
   const close = useMemo(
     () =>
-      (animation: number = settleTo(0)) => {
+      (animation?: number) => {
         "worklet";
         rest.set(0);
-        x.set(animation);
+        x.set(animation ?? settleTo(0));
       },
     [rest, x],
   );
@@ -149,7 +149,7 @@ function Panel({ action, side, x, width, armed, onPress }: { action: Action; sid
     return { transform: [{ translateX: side > 0 ? a * (v - ACTION) - v + width.get() : (a - 1) * (ACTION + v) }] };
   });
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: action.color ?? "#f85149" }, panelStyle]}>
+    <Animated.View style={[StyleSheet.absoluteFill, styles.panel, { backgroundColor: action.color ?? "#f85149" }, panelStyle]}>
       <Pressable accessibilityRole="button" accessibilityLabel={action.label} onPress={onPress} style={StyleSheet.absoluteFill}>
         <Animated.View style={[styles.label, labelStyle]}>
           <Text style={styles.labelText} numberOfLines={1}>
@@ -163,6 +163,7 @@ function Panel({ action, side, x, width, armed, onPress }: { action: Action; sid
 
 const styles = StyleSheet.create({
   row: { overflow: "hidden" },
+  panel: { overflow: "hidden" },
   label: { position: "absolute", top: 0, bottom: 0, left: 0, width: ACTION, alignItems: "center", justifyContent: "center" },
   labelText: { color: "#ffffff", fontSize: 13, fontWeight: "700" },
 });
