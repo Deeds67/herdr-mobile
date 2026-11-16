@@ -36,9 +36,12 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-gesture-handler": "3.4.0",
+    "react-native-reanimated": "4.7.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.26.2",
-    "react-native-webview": "^13.16.1"
+    "react-native-webview": "^13.16.1",
+    "react-native-worklets": "0.13.1"
   },
   "devDependencies": {
     "@jitl/quickjs-ng-wasmfile-release-sync": "0.32.0",
@@ -52,5 +55,14 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": []
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-gesture-handler",
+        "react-native-reanimated",
+        "react-native-worklets"
+      ]
+    }
   }
 }

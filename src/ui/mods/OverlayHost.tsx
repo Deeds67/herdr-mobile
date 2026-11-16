@@ -1,6 +1,7 @@
 // Draws what mods open over the screen: sheets from the bottom, dialogs in
 // the middle, toasts at the top. Each is a mod copy with props().overlay.
 import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppData } from "../../mods/app-data";
 import { closeOverlay, useOverlays } from "../../mods/overlays";
@@ -19,6 +20,7 @@ export function OverlayHost() {
         .filter((o) => o.kind !== "toast")
         .map((o) => (
           <Modal key={o.id} visible transparent animationType={o.kind === "sheet" ? "slide" : "fade"} onRequestClose={() => closeOverlay(o.id)} statusBarTranslucent navigationBarTranslucent>
+            <GestureHandlerRootView style={styles.root}>
             <Pressable style={styles.backdrop} onPress={() => closeOverlay(o.id)} accessibilityLabel="Close" />
             {o.kind === "sheet" ? (
               <View style={[styles.sheet, { backgroundColor: t.popover, paddingBottom: (keyboard || insets.bottom) + 8 }]}>
@@ -32,6 +34,7 @@ export function OverlayHost() {
                 </View>
               </View>
             )}
+            </GestureHandlerRootView>
           </Modal>
         ))}
       {toasts.length > 0 && (
@@ -48,6 +51,7 @@ export function OverlayHost() {
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   backdrop: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.5)" },
   sheet: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "85%", borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 8 },
   handle: { alignSelf: "center", width: 36, height: 4, borderRadius: 2, marginBottom: 8 },

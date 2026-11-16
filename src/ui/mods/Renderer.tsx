@@ -2,9 +2,10 @@
 // Text styles flow down to the strings inside; handlers call back into the mod.
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Easing, PanResponder, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type TextStyle, type ViewStyle } from "react-native";
+import { Animated, Easing, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type TextStyle, type ViewStyle } from "react-native";
 import type { UIElement, UINode } from "../../mods/description";
 import { Asset } from "./Asset";
+import { Swipe } from "./Swipe";
 
 const TEXT_KEYS = new Set(["color", "fontSize", "fontWeight", "fontFamily", "fontStyle", "textDecorationLine", "lineHeight", "textAlign"]);
 // In a scroll view these lay out the content, not the frame.
@@ -30,60 +31,6 @@ function Spin({ ms, children }: { ms: number; children: ReactNode }) {
   }, [ms, turn]);
   const rotate = turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   return <Animated.View style={{ transform: [{ rotate }] }}>{children}</Animated.View>;
-}
-
-const ACTION = 88;
-
-/** A row that slides to show its actions: swipe right shows the "right" action on the left. */
-function Swipe({ actions, fire, children }: { actions: NonNullable<UIElement["swipe"]>; fire: Fire; children: ReactNode }) {
-  const x = useRef(new Animated.Value(0)).current;
-  const at = useRef(0);
-  const [open, setOpen] = useState(0);
-  const right = actions.find((a) => a.d === "right");
-  const left = actions.find((a) => a.d === "left");
-  const settle = (to: number) => {
-    at.current = to;
-    setOpen(to);
-    Animated.spring(x, { toValue: to, useNativeDriver: true, overshootClamping: true, speed: 20 }).start();
-  };
-  const pan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderMove: (_, g) => {
-        const v = at.current + g.dx;
-        x.setValue(Math.max(left ? -ACTION * 1.5 : 0, Math.min(right ? ACTION * 1.5 : 0, v)));
-      },
-      onPanResponderRelease: (_, g) => {
-        const v = at.current + g.dx;
-        settle(right && (v > ACTION / 2 || g.vx > 0.5) ? ACTION : left && (v < -ACTION / 2 || g.vx < -0.5) ? -ACTION : 0);
-      },
-      onPanResponderTerminate: () => settle(at.current),
-    }),
-  ).current;
-  const button = (a: NonNullable<typeof right>, side: "left" | "right") => (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={a.label}
-      onPress={() => {
-        settle(0);
-        fire(a.a);
-      }}
-      style={[styles.action, side === "left" ? { left: 0 } : { right: 0 }, { backgroundColor: a.color ?? "#f85149" }]}
-    >
-      <Text style={styles.actionText}>{a.label}</Text>
-    </Pressable>
-  );
-  return (
-    <View style={styles.swipe}>
-      {right && open > 0 && button(right, "left")}
-      {left && open < 0 && button(left, "right")}
-      <Animated.View style={{ transform: [{ translateX: x }] }} {...pan.panHandlers}>
-        {children}
-        {open !== 0 && <Pressable style={StyleSheet.absoluteFill} onPress={() => settle(0)} accessibilityLabel="Hide actions" />}
-      </Animated.View>
-    </View>
-  );
 }
 
 function Input({ n, ctx, style }: { n: UIElement; ctx: Ctx; style: any }) {
@@ -182,7 +129,4 @@ export function Renderer({ node, fire, text }: { node: UINode; fire: Fire; text:
 const styles = StyleSheet.create({
   shrink: { flexShrink: 1 },
   pressed: { opacity: 0.6 },
-  swipe: { overflow: "hidden" },
-  action: { position: "absolute", top: 0, bottom: 0, width: ACTION, alignItems: "center", justifyContent: "center" },
-  actionText: { color: "#ffffff", fontSize: 13, fontWeight: "700" },
 });

@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { AppState } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { fleet, startFleet } from "../src/fleet-store";
 import { startDefinition } from "../src/definition/controller";
@@ -23,6 +24,7 @@ export default function Layout() {
   }, []);
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <StatusBar style="light" />
       <Stack
@@ -40,5 +42,6 @@ export default function Layout() {
       </Stack>
       <OverlayHost />
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
