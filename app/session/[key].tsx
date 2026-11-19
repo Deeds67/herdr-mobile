@@ -54,16 +54,20 @@ export default function SessionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t?.state]);
 
+  const actionsButton = (
+    <Pressable hitSlop={10} onPress={() => setActions(true)} disabled={!session} accessibilityRole="button" accessibilityLabel="Session actions">
+      <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
+    </Pressable>
+  );
+
   return (
     <View style={[styles.screen, { paddingBottom: keyboard }]}>
       <Stack.Screen
         options={{
           title: title.current,
-          headerRight: () => (
-            <Pressable hitSlop={10} onPress={() => setActions(true)} disabled={!session} accessibilityRole="button" accessibilityLabel="Session actions">
-              <Ionicons name="ellipsis-vertical" size={22} color={colors.text} />
-            </Pressable>
-          ),
+          headerRight: () => actionsButton,
+          // See app/index.tsx: no light Liquid Glass pill behind the button on iOS 26.
+          unstable_headerRightItems: () => [{ type: "custom", element: actionsButton, hidesSharedBackground: true }],
         }}
       />
       {t && route ? (

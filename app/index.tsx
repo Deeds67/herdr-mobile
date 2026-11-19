@@ -16,16 +16,20 @@ import { TabBar } from "../src/ui/mods/TabBar";
 const SHIPPED_MAIN = validateLayout(JSON.parse(SHIPPED_DEFINITION["layouts/main.json"])).layout!;
 
 function Header({ screen, id }: { screen: Screen; id: string }) {
+  const right = () => (
+    <View style={styles.header}>
+      {screen.header && <ModBlock mod={screen.header.mod} props={screen.header.props ?? {}} copyId={`${id}/header`} />}
+      <AppMenu />
+    </View>
+  );
   return (
     <Stack.Screen
       options={{
         title: screen.title ?? "",
-        headerRight: () => (
-          <View style={styles.header}>
-            {screen.header && <ModBlock mod={screen.header.mod} props={screen.header.props ?? {}} copyId={`${id}/header`} />}
-            <AppMenu />
-          </View>
-        ),
+        headerRight: right,
+        // iOS 26 wraps header items in a shared Liquid Glass pill, which
+        // renders light grey behind our dark-theme icons. Draw them bare.
+        unstable_headerRightItems: () => [{ type: "custom", element: right(), hidesSharedBackground: true }],
       }}
     />
   );
