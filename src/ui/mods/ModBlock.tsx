@@ -36,7 +36,7 @@ export function useModCopy(mod: string, props: Record<string, unknown>, copyId: 
   const filesJson = useMemo(() => (files ? JSON.stringify(files) : null), [files]);
 
   useEffect(() => {
-    if (Platform.OS !== "android") {
+    if (Platform.OS !== "android" && Platform.OS !== "ios") {
       setState({ description: null, error: { message: "mods need the native mod engine, which this platform doesn't have yet" } });
       return;
     }

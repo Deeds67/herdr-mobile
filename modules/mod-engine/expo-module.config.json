@@ -1,6 +1,17 @@
 {
-  "platforms": ["android"],
+  "platforms": [
+    "apple",
+    "android"
+  ],
+  "apple": {
+    "modules": [
+      "ModEngineModule"
+    ],
+    "podspecPath": "ModEngine.podspec"
+  },
   "android": {
-    "modules": ["expo.modules.modengine.ModEngineModule"]
+    "modules": [
+      "expo.modules.modengine.ModEngineModule"
+    ]
   }
 }
