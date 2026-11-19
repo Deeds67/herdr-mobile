@@ -5,7 +5,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type RefObject } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { utf8Encode } from "../hc/bytes";
 import { HcError, type HcConnection } from "../hc/connection";
@@ -182,7 +182,11 @@ export const TerminalInput = forwardRef<TerminalInputHandle, Props>(function Ter
     <>
       <ScrollView horizontal style={styles.keybar} contentContainerStyle={styles.keybarContent} keyboardShouldPersistTaps="always" showsHorizontalScrollIndicator={false}>
         <Key label="" icon={message ? "keypad-outline" : "chatbox-outline"} accessibilityLabel={message ? "Type directly" : "Write a message"} onPress={() => setMode(message ? "direct" : "message")} />
-        {!message && keyboardHeight === 0 && <Key label="keyboard" onPress={openKeyboard} />}
+        {keyboardHeight > 0 ? (
+          <Key label="" icon="chevron-down" accessibilityLabel="Hide keyboard" onPress={() => Keyboard.dismiss()} />
+        ) : (
+          !message && <Key label="keyboard" onPress={openKeyboard} />
+        )}
         <Key label="ctrl" active={ctrl} onPress={() => setCtrl((c) => !c)} />
         {KEY_BAR.map((k) => (
           <Key key={k.label} label={k.label} onPress={() => pressKey(k.key)} />
